@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // For Vercel: use a serverless-friendly Postgres like Neon (native Vercel
+  // integration, generous free tier) instead of SQLite — Vercel's
+  // filesystem is ephemeral in production, so a SQLite file wouldn't
+  // survive between invocations even within a single deploy.
+  //
+  // Neon gives you two connection strings: a pooled one (for the app, via
+  // PgBouncer) and a direct one (for running migrations, which don't work
+  // through a pooler). Set both env vars below once you switch provider.
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   // "ADMIN" | "CLIENT" — plain string, not an enum,
+                         // so this schema stays portable if you switch
+                         // provider between postgresql/mysql/sqlite
+  client       Client?  @relation(fields: [clientId], references: [id])
+  clientId     String?
+  createdAt    DateTime @default(now())
+}
+
+// One row per agency client (Cyberforte, Meridian Dental, etc.)
+model Client {
+  id           String         @id @default(cuid())
+  name         String
+  industry     String
+  ga4PropertyId String?       // GA4 property this client maps to
+  gmbLocationId String?       // Google Business Profile location id
+  users        User[]
+  access       AccessGrant[]
+  trackedKeywords TrackedKeyword[]
+  rankSnapshots   RankSnapshot[]
+  reportSnapshots ReportSnapshot[]
+  createdAt    DateTime       @default(now())
+}
+
+// The access ledger: one row per (client, module).
+model AccessGrant {
+  id        String   @id @default(cuid())
+  client    Client   @relation(fields: [clientId], references: [id])
+  clientId  String
+  module    String   // "GA4-01" | "KWD-02" | "GMB-03" | "CNV-04"
+  granted   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, module])
+}
+
+// A keyword the agency has chosen to track for a client, targeted at a
+// specific location — Google localizes results (a Melbourne search and a
+// Sydney search can genuinely differ for the same term), so rank tracking
+// has to specify where the search is simulated from, not just what the
+// query is. Admin manages this from the Settings page — it's the input
+// list the weekly poll job reads, not something fetched from an API.
+//
+// gl/hl/location together are what actually force Google to render the
+// results page as if the search came from that exact place — location
+// alone ("Melbourne, Victoria, Australia") isn't enough on its own; real
+// SERP APIs (DataForSEO, SerpApi, SearchApi) take gl (country, e.g. "au"),
+// hl (language, e.g. "en"), and location_name — and internally encode that
+// into Google's UULE parameter, which is what actually pins the simulated
+// searcher's position. Defaulted to Australia/English here since that's
+// this agency's market; change the defaults if you ever track keywords in
+// another country.
+model TrackedKeyword {
+  id        String   @id @default(cuid())
+  client    Client   @relation(fields: [clientId], references: [id])
+  clientId  String
+  keyword   String
+  location  String   @default("Melbourne, Victoria, Australia")
+  gl        String   @default("au") // Google's country-code param
+  hl        String   @default("en") // Google's language-code param
+  device    String   @default("mobile") // "mobile" | "desktop" — rankings can differ by device
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, keyword, location, device, gl, hl])
+}
+
+// One captured payload per (client, module, capture date) — GA4, GMB and
+// Conversions all store their whole report here as JSON. Same idea as
+// RankSnapshot below, just one row per capture instead of one row per
+// keyword, since these three are read as a single blob per dashboard
+// section rather than a list. Dashboards always read the most recent row
+// here; they never trigger a live API call themselves.
+model ReportSnapshot {
+  id         String   @id @default(cuid())
+  client     Client   @relation(fields: [clientId], references: [id])
+  clientId   String
+  module     String   // "GA4-01" | "GMB-03" | "CNV-04"
+  payload    Json
+  capturedAt DateTime @default(now())
+
+  @@index([clientId, module, capturedAt])
+}
+
+// One row per (client, keyword, source, capture date). "source" is what
+// makes this three-way rather than one number per keyword:
+//   "dataforseo"     — paid SERP API, weekly automated capture, precise
+//                       single-point rank for the exact location/device.
+//   "search_console" — free, but Google Search Console only reports an
+//                       *average* position across a date range (not a
+//                       single-search snapshot) and lags 2-3 days behind
+//                       real time — see gsc.service.js for why it can't be
+//                       swapped in as a drop-in replacement for DataForSEO.
+//   "manual"          — an admin actually checked and typed in a number.
+//                       The most accurate of the three by definition, but
+//                       only as fresh as someone last did it by hand —
+//                       expect roughly monthly, not weekly.
+// The ranking API itself only ever returns *today's* position (for
+// whichever source), so "previous vs current" only exists because we
+// snapshot it ourselves rather than calling the API live on every
+// dashboard load.
+model RankSnapshot {
+  id           String   @id @default(cuid())
+  client       Client   @relation(fields: [clientId], references: [id])
+  clientId     String
+  keyword      String
+  location     String   @default("Melbourne, Victoria, Australia")
+  device       String   @default("mobile")
+  source       String   @default("dataforseo") // "dataforseo" | "search_console" | "manual"
+  position     Int
+  searchVolume Int?
+  note         String?  // optional context for a manual entry, e.g. "checked via incognito 2pm AEST"
+  capturedAt   DateTime @default(now())
+
+  @@index([clientId, keyword, location, device, source, capturedAt])
+}

@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #F6F7F5;
+  color: #14181D;
+}
+
+.stamp {
+  @apply inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide px-2 py-1 rounded;
+}
+.stamp-granted { @apply text-teal bg-teal/10 border border-teal/30; }
+.stamp-locked { @apply text-amber bg-amber/10 border border-amber/30; }
+
+.card {
+  @apply bg-surface border border-line rounded-md p-4;
+}
