@@ -122,8 +122,7 @@ the code:
 ```
 cd backend
 npx prisma migrate dev --name add_gsc_site_url
-npm run seed:keywords   # tracked keywords + history for the demo clients
-npm run seed:reports    # first GA4/GMB/Conversions capture for the demo clients
+npm run seed            # admin login + NexIT client
 ```
 
 If `migrate dev` reports schema drift and suggests `prisma migrate reset` —
@@ -275,7 +274,8 @@ cp .env.example .env
 # and JWT_SECRET (any long random string)
 npm install
 npx prisma migrate dev --name init
-npm run seed               # creates 1 admin + 3 demo clients
+npm run seed               # creates the admin login + NexIT
+npm run doctor             # verifies GA4 / Search Console actually connect
 npm run dev                 # http://localhost:4000
 ```
 
@@ -286,11 +286,47 @@ npm install
 npm run dev                 # http://localhost:3000
 ```
 
-### Demo logins (password: `password123` for all)
-- `admin@nexit.demo` — admin roster + access ledger
-- `cyberforte@client.demo` — GA4, keywords, conversions granted; GMB locked
-- `meridian@client.demo` — everything granted
-- `alderton@client.demo` — only GA4 granted, rest locked (shows empty states)
+### Logins
+
+`npm run seed` creates two accounts and prints a randomly generated password
+for each, once. They are not recoverable — save them when they're shown.
+
+- **admin** (`ADMIN_EMAIL`, default `admin@nexit.au`) — client roster, access
+  ledger, settings.
+- **client** (`NEXIT_CLIENT_EMAIL`, default `reports@nexit.au`) — NexIT's own
+  client-side view.
+
+Log in as the client account when checking how a report looks. An ADMIN
+bypasses `checkAccess` entirely, so every locked-module and empty state a
+real client would hit is invisible from an admin session.
+
+NexIT starts with **GA4-01 and KWD-02 granted, GMB-03 and CNV-04 locked** —
+the first two are backed by real APIs, the second two still return mock
+numbers. Grant them from the Access Ledger once they're real.
+
+### Checking the connections
+
+```
+npm run doctor
+```
+
+Makes real calls to GA4 and Search Console and reports, per client, whether
+each is returning live data or silently falling back to mock. It also lists
+which Search Console properties the service account can actually see, which
+is usually where a misconfiguration shows up. Exits non-zero if anything
+fails, so it works as a deploy gate.
+
+### Removing the old demo data
+
+If your database still has the original demo clients (Cyberforte, Meridian
+Dental, Alderton & Co) and the shared `password123` logins:
+
+```
+npm run purge:demo             # dry run — lists exactly what would go
+npm run purge:demo -- --confirm
+```
+
+Only ever touches those three clients and the `admin@nexit.demo` login.
 
 ## Real data sources — what's wired up and what's still mock
 

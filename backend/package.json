@@ -7,10 +7,10 @@
     "start": "node src/index.js",
     "postinstall": "prisma generate",
     "seed": "node prisma/seed.js",
-    "seed:keywords": "node prisma/seed-keywords.js",
-    "seed:reports": "node prisma/seed-reports.js",
     "prisma:migrate": "prisma migrate dev --name init",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "purge:demo": "node prisma/purge-demo.js",
+    "doctor": "node src/scripts/doctor.js"
   },
   "dependencies": {
     "@google-analytics/data": "^6.1.0",
