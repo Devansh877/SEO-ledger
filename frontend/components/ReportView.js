@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { Search, MapPin, Download } from "lucide-react";
 import { api } from "../lib/api";
-import { StatCard, LockedPanel, PendingPanel, ErrorPanel } from "./Primitives";
+import { StatCard, LockedPanel, PendingPanel, ErrorPanel, MockBanner } from "./Primitives";
 
 const PIE_COLORS = ["#0F6E63", "#5C6570", "#C67C2E", "#B23B3B", "#8B95A1", "#DDE1E6"];
 
@@ -53,7 +53,7 @@ function KeywordSourceRow({ label, data, sparkline = true }) {
           className="font-mono text-[10.5px]"
           style={{ color: improved ? "#0F6E63" : worsened ? "#B23B3B" : "#5C6570" }}
         >
-          {hasBoth ? (improved ? `\u2191${deltaAbs}` : worsened ? `\u2193${deltaAbs}` : "\u2014") : "new"}
+          {hasBoth ? (improved ? `↑${deltaAbs}` : worsened ? `↓${deltaAbs}` : "—") : "new"}
         </span>
       </div>
       {sparkline && data.history && data.history.length > 1 && (
@@ -153,17 +153,18 @@ export default function ReportView({ client }) {
           className="flex items-center gap-1.5 text-xs font-medium border border-line rounded px-2.5 py-1.5 hover:bg-paper disabled:opacity-50"
         >
           <Download size={12} />
-          {downloading ? "Preparing\u2026" : "Download PDF report"}
+          {downloading ? "Preparing…" : "Download PDF report"}
         </button>
       </div>
       {ga4Ready ? (
         <>
           <div className="flex items-center justify-between mb-1.5">
             <div className="text-[11px] text-slate font-mono">
-              {ga4.week ? `Week of ${ga4.week.startDate} \u2013 ${ga4.week.endDate} (Mon\u2013Sat)` : ""}
+              {ga4.week ? `Week of ${ga4.week.startDate} – ${ga4.week.endDate} (Mon–Sat)` : ""}
             </div>
             <CapturedNote iso={ga4.capturedAt} />
           </div>
+          {ga4.isMock && <MockBanner module="Analytics" />}
           <div className="flex gap-3 flex-wrap mb-4">
             <StatCard label="Total users" value={ga4.summary.totalUsers.value} deltaPct={ga4.summary.totalUsers.deltaPct} />
             <StatCard label="New users" value={ga4.summary.newUsers.value} deltaPct={ga4.summary.newUsers.deltaPct} />
@@ -174,7 +175,7 @@ export default function ReportView({ client }) {
           </div>
 
           <div className="card mb-4">
-            <div className="font-semibold text-[13px] mb-3">Daily users (Mon\u2013Sat)</div>
+            <div className="font-semibold text-[13px] mb-3">Daily users (Mon–Sat)</div>
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={ga4.dailyBreakdown} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="#DDE1E6" vertical={false} />
@@ -251,6 +252,7 @@ export default function ReportView({ client }) {
               <div className="font-semibold text-[13px]">Conversions</div>
               <CapturedNote iso={conversions.capturedAt} />
             </div>
+            {conversions.isMock && <MockBanner module="Conversions" />}
             {conversions.events.map((e) => (
               <div key={e.name} className="flex items-center gap-2.5 py-1.5 border-b border-line last:border-0 text-[12.5px]">
                 <span className="font-mono flex-1 truncate">{e.name}</span>
@@ -273,19 +275,19 @@ export default function ReportView({ client }) {
           <div className="card">
             <div className="flex items-baseline justify-between mb-3">
               <div className="font-semibold text-[13px]">Keyword rankings</div>
-              <div className="text-[10.5px] text-slate">DataForSEO + Search Console: weekly \u00b7 Manual: as checked</div>
+              <div className="text-[10.5px] text-slate">DataForSEO + Search Console: weekly · Manual: as checked</div>
             </div>
             {keywords.tracked.length === 0 && (
-              <div className="text-slate text-[12.5px]">No keywords tracked yet \u2014 add some in Settings.</div>
+              <div className="text-slate text-[12.5px]">No keywords tracked yet — add some in Settings.</div>
             )}
             {keywords.tracked.map((k) => (
               <div key={k.id || k.keyword} className="py-2.5 border-b border-line last:border-0">
                 <div className="text-[12.5px] mb-1.5">
                   <span>{k.keyword}</span>
-                  <span className="text-[10.5px] text-slate ml-2">{k.location} \u00b7 {k.device}</span>
+                  <span className="text-[10.5px] text-slate ml-2">{k.location} · {k.device}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <KeywordSourceRow label="DataForSEO" data={k.sources?.dataforseo} />
+                  <KeywordSourceRow label="SERP API" data={k.sources?.serp} />
                   <KeywordSourceRow label="Search Console" data={k.sources?.search_console} />
                   <KeywordSourceRow label="Manual" data={k.sources?.manual} sparkline={false} />
                 </div>

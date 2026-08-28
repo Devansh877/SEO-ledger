@@ -58,49 +58,14 @@ async function listSearchConsoleSites(token) {
     }));
 }
 
-// Business Profile needs two calls: accounts, then locations per account.
-//
-// Both APIs return 403 with quota 0 until Google approves an access request
-// for the Cloud project — approval is a manual review, not a toggle. That
-// 403 is surfaced as a typed error rather than an empty list, so the UI can
-// say "awaiting Google approval" instead of "no locations found".
-async function listBusinessProfileLocations(token) {
-  let accounts;
-  try {
-    accounts = await getJson("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", token);
-  } catch (err) {
-    if (err.status === 403) {
-      const e = new Error(
-        "Business Profile API returned 403. The Google Cloud project has no Business Profile quota " +
-        "until an access request is approved: https://developers.google.com/my-business/content/prereqs"
-      );
-      e.needsApproval = true;
-      throw e;
-    }
-    throw err;
-  }
-
-  const out = [];
-  for (const account of accounts.accounts || []) {
-    const url = new URL(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations`);
-    url.searchParams.set("readMask", "name,title,storefrontAddress");
-    url.searchParams.set("pageSize", "100");
-    try {
-      const data = await getJson(url.toString(), token);
-      for (const loc of data.locations || []) {
-        const city = loc.storefrontAddress?.locality;
-        out.push({
-          id: loc.name,                      // "locations/123"
-          label: city ? `${loc.title} — ${city}` : loc.title,
-          group: account.accountName || account.name,
-          accountId: account.name,           // stored alongside; performance calls need both
-        });
-      }
-    } catch (err) {
-      console.error(`Failed listing locations for ${account.name}: ${err.message}`);
-    }
-  }
-  return out;
+// Business Profile is deferred to a later version — the OAuth grant no
+// longer requests business.manage, so there is nothing to list. Kept as an
+// explicit status rather than removed entirely so the UI renders an honest
+// "not enabled yet" instead of an empty dropdown that looks broken.
+async function listBusinessProfileLocations() {
+  const err = new Error("Business Profile is not enabled in this version");
+  err.notEnabled = true;
+  throw err;
 }
 
 function dedupe(items) {
@@ -126,7 +91,7 @@ async function discoverForClient(clientId) {
 
   const ga4 = [], gsc = [], gbp = [];
   const summaries = [];
-  let ga4Error = null, gscError = null, gbpError = null, gbpNeedsApproval = false;
+  let ga4Error = null, gscError = null, gbpError = null, gbpNotEnabled = false;
 
   for (const connection of connections) {
     const token = await getAccessToken(connection);
@@ -147,7 +112,7 @@ async function discoverForClient(clientId) {
     if (a.status === "fulfilled") ga4.push(...a.value); else ga4Error = a.reason.message;
     if (s.status === "fulfilled") gsc.push(...s.value); else gscError = s.reason.message;
     if (b.status === "fulfilled") gbp.push(...b.value);
-    else { gbpError = b.reason.message; gbpNeedsApproval = !!b.reason.needsApproval; }
+    else { gbpError = b.reason.message; gbpNotEnabled = !!b.reason.notEnabled; }
   }
 
   const state = (items, error, extra) =>
@@ -159,7 +124,9 @@ async function discoverForClient(clientId) {
     connections: summaries,
     ga4: state(ga4, ga4Error),
     searchConsole: state(gsc, gscError),
-    businessProfile: state(gbp, gbpError, gbpNeedsApproval ? { needsApproval: true } : {}),
+    businessProfile: gbpNotEnabled
+      ? { status: "not_enabled", items: [] }
+      : state(gbp, gbpError),
   };
 }
 

@@ -1,7 +1,8 @@
 // --------------------------------------------------------------------------
 // Keyword ranking + search volume — location- and device-targeted, and
 // tracked across three independent sources per keyword:
-//   "dataforseo"     — paid SERP API, precise single-point rank, weekly cron
+//   "serp"           — SERP API (Serper by default, DataForSEO optional),
+//                       precise single-point rank, weekly cron
 //   "search_console" — free, but an averaged/lagged number (see
 //                       gsc.service.js) — weekly cron alongside DataForSEO
 //   "manual"          — an admin actually checked and typed it in. Most
@@ -52,45 +53,47 @@
 // --------------------------------------------------------------------------
 const prisma = require("../lib/prisma");
 
-// Stand-in for a real DataForSEO call. Swap this function's body for:
-//   POST https://api.dataforseo.com/v3/serp/google/organic/live/advanced
-//     body: { keyword, location_name: location, device, language_code: "en", gl: "au" }
-//   POST https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live
-//     body: { keywords: [keyword], location_name: location, language_code: "en" }
-// keeping the same return shape ({ position, searchVolume }) so nothing
-// else in this file has to change.
-async function callDataForSeo(keyword, location, device) {
-  const base = 3 + Math.floor(Math.random() * 20);
-  return {
-    position: base,
-    searchVolume: 100 + Math.floor(Math.random() * 400),
-  };
-}
-
-// Called by the weekly cron job, or manually from the admin Settings page.
-// Writes one RankSnapshot row per tracked (keyword, location, device)
-// combination for BOTH automated sources — DataForSEO and Search Console —
-// since both run on the same cadence. Manual entries are never written
-// here; see addManualRanking() below.
+// Captures one snapshot per tracked keyword from the configured SERP
+// provider (see services/rank/). Which vendor that is comes from
+// RANK_PROVIDER — the stored source is always "serp" so history stays
+// continuous if you switch providers, rather than splitting into two
+// unrelated series.
 async function pollRankingsForClient(clientId) {
   const { pollSearchConsoleForClient } = require("./gsc.service"); // required here to avoid a require cycle
+  const { fetchRank } = require("./rank");
+
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new Error("Client not found");
+
   const tracked = await prisma.trackedKeyword.findMany({ where: { clientId } });
   const results = [];
+
   for (const t of tracked) {
-    const { position, searchVolume } = await callDataForSeo(t.keyword, t.location, t.device);
-    const snap = await prisma.rankSnapshot.create({
+    const { position, searchVolume, isMock } = await fetchRank(client, t);
+
+    // A null position means the domain genuinely wasn't in the results
+    // checked. Recording it as 100 would be a lie that shows up as a real
+    // ranking on the dashboard, and recording 0 would break the "lower is
+    // better" ordering, so no snapshot is written this round.
+    if (position === null || position === undefined) {
+      console.log(`No ranking found for "${t.keyword}" (${client.name}) — not in the results checked`);
+      continue;
+    }
+
+    results.push(await prisma.rankSnapshot.create({
       data: {
         clientId,
         keyword: t.keyword,
         location: t.location,
         device: t.device,
-        source: "dataforseo",
+        source: "serp",
         position,
-        searchVolume,
+        searchVolume: searchVolume ?? null,
+        note: isMock ? "MOCK DATA — no rank provider configured" : null,
       },
-    });
-    results.push(snap);
+    }));
   }
+
   const gscResults = await pollSearchConsoleForClient(clientId);
   return [...results, ...gscResults];
 }
@@ -115,7 +118,7 @@ async function addManualRanking(clientId, trackedKeywordId, { position, searchVo
   });
 }
 
-const SOURCES = ["dataforseo", "search_console", "manual"];
+const SOURCES = ["serp", "search_console", "manual"];
 
 function summarizeSource(snapshots) {
   const chronological = [...snapshots].reverse();

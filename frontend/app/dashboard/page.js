@@ -47,7 +47,7 @@ function AdminRoster() {
     }
   }
 
-  if (!clients) return <Shell><div className="p-8 text-slate text-sm">Loading roster\u2026</div></Shell>;
+  if (!clients) return <Shell><div className="p-8 text-slate text-sm">Loading roster…</div></Shell>;
 
   const grantedCount = clients.reduce((s, c) => s + c.access.filter((a) => a.granted).length, 0);
   const possible = clients.length * MODULES.length;
@@ -55,11 +55,11 @@ function AdminRoster() {
   return (
     <Shell>
       <div className="max-w-[1080px] mx-auto px-8 py-7">
-        <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-1">Admin \u00b7 Overview</div>
+        <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-1">Admin · Overview</div>
         <h1 className="text-xl font-semibold mb-1">Client roster</h1>
         <p className="text-slate text-[13px] max-w-[560px] mb-5 leading-relaxed">
           Every module a client can see is granted here first. Data is captured
-          every Sunday, covering the week just completed \u2014 use{" "}
+          every Sunday, covering the week just completed — use{" "}
           <span className="font-mono">Fetch now</span> below to pull a
           client's data on demand instead of waiting for the next cycle.
         </p>
@@ -117,7 +117,7 @@ function OwnClientDashboard({ clientId }) {
   const [client, setClient] = useState(null);
   useEffect(() => { api.getClient(clientId).then(setClient); }, [clientId]);
 
-  if (!client) return <Shell><div className="p-8 text-slate text-sm">Loading dashboard\u2026</div></Shell>;
+  if (!client) return <Shell><div className="p-8 text-slate text-sm">Loading dashboard…</div></Shell>;
 
   return (
     <Shell>

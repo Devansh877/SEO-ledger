@@ -7,8 +7,13 @@
 // --------------------------------------------------------------------------
 const prisma = require("../lib/prisma");
 
+// Business Profile is deferred to a later version — there is no API client
+// here yet, so every value below is invented. isMock keeps that visible all
+// the way through to the dashboard and PDF. GMB-03 should stay LOCKED in
+// the access ledger until this is real.
 function buildMockPayload() {
   return {
+    isMock: true,
     profileViews: 412,
     searchViews: 298,
     mapViews: 114,

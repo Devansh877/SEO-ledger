@@ -29,7 +29,7 @@
 // doesn't leave the source silently empty).
 // --------------------------------------------------------------------------
 const prisma = require("../lib/prisma");
-const { getGoogleAuth } = require("../lib/googleAuth");
+const { accessTokenForClient } = require("../lib/googleAuth");
 
 function fmt(date) {
   return date.toISOString().slice(0, 10);
@@ -40,12 +40,8 @@ function fmt(date) {
 // Returns { position } on a real match, or null if GSC has no impression
 // data for this exact query in the window (not an error — just nothing to
 // report yet).
-async function fetchRealPosition(client, keyword) {
-  const auth = getGoogleAuth();
-  if (!auth || !client.gscSiteUrl) return { configured: false };
-
-  const authClient = await auth.getClient();
-  const { token } = await authClient.getAccessToken();
+async function fetchRealPosition(client, keyword, token) {
+  if (!token || !client.gscSiteUrl) return { configured: false };
 
   const end = new Date();
   end.setUTCDate(end.getUTCDate() - 3); // dodge GSC's 2-3 day processing lag
@@ -85,12 +81,16 @@ async function pollSearchConsoleForClient(clientId) {
   const tracked = await prisma.trackedKeyword.findMany({ where: { clientId } });
   const results = [];
 
+  // Resolved once for the whole run. Previously this refreshed credentials
+  // per keyword, which meant 20 token round-trips for a 20-keyword client.
+  const token = await accessTokenForClient(clientId);
+
   for (const t of tracked) {
     let position = null;
     let skip = false;
 
     try {
-      const real = await fetchRealPosition(client, t.keyword);
+      const real = await fetchRealPosition(client, t.keyword, token);
       if (!real.configured) {
         position = mockPosition(); // demo/unconfigured client — keep the UI populated
       } else if (real.noData) {

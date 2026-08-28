@@ -29,13 +29,20 @@
 const { OAuth2Client } = require("google-auth-library");
 const jwt = require("jsonwebtoken");
 
-// Read-only everywhere except business.manage, which is the narrowest scope
-// Google offers for Business Profile — there is no read-only variant, so a
-// read-only integration still has to request it.
+// Read-only only. Business Profile is deliberately not requested: its
+// narrowest scope is business.manage, which grants WRITE access to a
+// client's listings, and Google offers no read-only variant. Asking a
+// client to hand over edit rights on their own Business Profile just to
+// display view counts is a bad trade, and it makes both Google's
+// verification review and the consent screen harder to get through.
+//
+// When Business Profile is added in a later version, append
+// "https://www.googleapis.com/auth/business.manage" here — existing
+// connections will then show as missing a scope (see scopes on
+// GoogleConnection) and need reconnecting to pick it up.
 const SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
   "https://www.googleapis.com/auth/webmasters.readonly",
-  "https://www.googleapis.com/auth/business.manage",
   "openid",
   "email",
 ];

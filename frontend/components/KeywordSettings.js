@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 const DEFAULT_LOCATION = "Melbourne, Victoria, Australia";
 
 const SOURCE_LABELS = {
-  dataforseo: "DataForSEO",
+  serp: "SERP API",
   search_console: "Search Console",
   manual: "Manual",
 };
@@ -68,7 +68,7 @@ function SourceCell({ label, data }) {
     return (
       <div className="text-[11px]">
         <div className="text-slate">{label}</div>
-        <div className="font-mono text-line">\u2014</div>
+        <div className="font-mono text-line">—</div>
       </div>
     );
   }
@@ -136,7 +136,7 @@ export default function KeywordSettings({ clientId, editable }) {
     }
   }
 
-  if (!keywords) return <div className="card text-slate text-sm">Loading keyword settings\u2026</div>;
+  if (!keywords) return <div className="card text-slate text-sm">Loading keyword settings…</div>;
 
   return (
     <div className="card">
@@ -155,7 +155,7 @@ export default function KeywordSettings({ clientId, editable }) {
       </div>
       <p className="text-slate text-[12.5px] mb-3">
         DataForSEO and Search Console update weekly, automatically. Manual is
-        whatever an admin last checked by hand \u2014 most accurate, but only
+        whatever an admin last checked by hand — most accurate, but only
         as fresh as someone did it (expect roughly monthly, not weekly).
       </p>
 
@@ -204,7 +204,7 @@ export default function KeywordSettings({ clientId, editable }) {
             </div>
 
             <div className="flex gap-5 mt-2">
-              <SourceCell label={SOURCE_LABELS.dataforseo} data={k.sources?.dataforseo} />
+              <SourceCell label={SOURCE_LABELS.serp} data={k.sources?.serp} />
               <SourceCell label={SOURCE_LABELS.search_console} data={k.sources?.search_console} />
               <SourceCell label={SOURCE_LABELS.manual} data={k.sources?.manual} />
             </div>
@@ -226,7 +226,7 @@ export default function KeywordSettings({ clientId, editable }) {
           <input
             value={newKeyword}
             onChange={(e) => setNewKeyword(e.target.value)}
-            placeholder="Keyword to track\u2026"
+            placeholder="Keyword to track…"
             className="w-full border border-line rounded px-3 py-2 text-[12.5px]"
           />
           <div className="flex gap-2">
@@ -235,13 +235,13 @@ export default function KeywordSettings({ clientId, editable }) {
               onChange={(e) => setNewLocation(e.target.value)}
               placeholder={DEFAULT_LOCATION}
               className="flex-1 border border-line rounded px-3 py-2 text-[12.5px]"
-              title="Location to simulate the search from \u2014 Google localizes results by geography"
+              title="Location to simulate the search from — Google localizes results by geography"
             />
             <select
               value={newDevice}
               onChange={(e) => setNewDevice(e.target.value)}
               className="border border-line rounded px-2 py-2 text-[12.5px] bg-surface"
-              title="Device to simulate \u2014 mobile and desktop rankings can differ"
+              title="Device to simulate — mobile and desktop rankings can differ"
             >
               <option value="mobile">Mobile</option>
               <option value="desktop">Desktop</option>

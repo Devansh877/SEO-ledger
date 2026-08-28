@@ -2,7 +2,7 @@ import "./globals.css";
 import { AuthProvider } from "../lib/auth-context";
 
 export const metadata = {
-  title: "SEO Ledger \u2014 NexIT Solutions",
+  title: "SEO Ledger — NexIT Solutions",
   description: "Multi-tenant SEO reporting platform",
 };
 

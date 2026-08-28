@@ -39,7 +39,7 @@ export default function CaptureStatus({ clientId, editable }) {
     }
   }
 
-  if (!status) return <div className="card text-slate text-sm">Loading capture status\u2026</div>;
+  if (!status) return <div className="card text-slate text-sm">Loading capture status…</div>;
 
   return (
     <div className="card mb-4">
@@ -57,7 +57,7 @@ export default function CaptureStatus({ clientId, editable }) {
         )}
       </div>
       <p className="text-slate text-[12.5px] mb-3">
-        All four modules are captured together, weekly \u2014 GA4, Business
+        All four modules are captured together, weekly — GA4, Business
         Profile, Conversions and keyword rankings never call their APIs live
         from a dashboard page load.
       </p>

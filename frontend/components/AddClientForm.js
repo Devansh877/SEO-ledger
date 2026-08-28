@@ -77,7 +77,7 @@ export default function AddClientForm({ onCreated }) {
           </button>
         </div>
         <p className="text-slate text-[12.5px] mb-3">
-          This is the only time the password is shown \u2014 it can't be
+          This is the only time the password is shown — it can't be
           retrieved again after you close this. Copy it to your client
           onboarding notes now.
         </p>
@@ -152,10 +152,10 @@ export default function AddClientForm({ onCreated }) {
 
       <div className="flex gap-2 mt-4">
         <button disabled={busy} className="bg-ink text-paper rounded px-4 py-2 text-xs font-medium disabled:opacity-50">
-          {busy ? "Creating\u2026" : "Create client"}
+          {busy ? "Creating…" : "Create client"}
         </button>
         <p className="text-[11px] text-slate self-center">
-          Starts with nothing granted \u2014 stamp access from the client's detail page after.
+          Starts with nothing granted — stamp access from the client's detail page after.
         </p>
       </div>
     </form>

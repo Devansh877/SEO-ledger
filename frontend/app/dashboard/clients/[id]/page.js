@@ -24,7 +24,7 @@ export default function ClientDetailPage() {
         <Rail />
         <div className="flex-1 flex flex-col">
           <TopBar />
-          <div className="p-8 text-slate text-sm">Loading client\u2026</div>
+          <div className="p-8 text-slate text-sm">Loading client…</div>
         </div>
       </div>
     );
@@ -50,7 +50,7 @@ export default function ClientDetailPage() {
             <ArrowLeft size={13} /> Client roster
           </button>
 
-          <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-1">Admin \u00b7 Client detail</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-1">Admin · Client detail</div>
           <h1 className="text-xl font-semibold mb-1">{client.name}</h1>
           <p className="text-slate text-[13px] mb-3">{client.industry}</p>
 
@@ -61,7 +61,7 @@ export default function ClientDetailPage() {
             <AccessLedger client={client} onChange={handleAccessChange} />
           </div>
 
-          <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-2">Preview \u2014 what this client sees</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-2">Preview — what this client sees</div>
           <ReportView client={client} />
         </div>
       </div>

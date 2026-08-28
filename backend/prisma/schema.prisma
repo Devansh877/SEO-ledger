@@ -37,6 +37,13 @@ model Client {
   gmbLocationId String?       // Google Business Profile location id
   gscSiteUrl    String?       // Search Console verified property, e.g. "https://example.com.au/" or "sc-domain:example.com.au"
   gmbAccountId  String?       // Business Profile account, e.g. "accounts/123" — needed alongside gmbLocationId
+  // The domain to look for in search results, e.g. "nexit.com.au". Rank
+  // tracking is meaningless without it — a SERP API returns the whole
+  // results page, and matching it to "this client ranks #4" needs to know
+  // whose domain counts as a hit. Falls back to parsing gscSiteUrl when
+  // blank, which covers most clients since that is already a verified
+  // property for the same site.
+  websiteUrl    String?
   users        User[]
   connections  GoogleConnection[]
   access       AccessGrant[]

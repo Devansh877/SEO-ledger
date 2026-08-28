@@ -38,7 +38,7 @@ router.get("/:clientId/status", asyncHandler(async (req, res) => {
   // weekly cron cadence actually means; manual entries are tracked
   // separately since they're not on a schedule at all.
   const lastAuto = await prisma.rankSnapshot.findFirst({
-    where: { clientId, source: { in: ["dataforseo", "search_console"] } },
+    where: { clientId, source: { in: ["serp", "search_console"] } },
     orderBy: { capturedAt: "desc" },
   });
   const lastManual = await prisma.rankSnapshot.findFirst({
@@ -76,7 +76,7 @@ router.get("/:clientId/keywords", asyncHandler(async (req, res) => {
   const withLastCapture = await Promise.all(
     tracked.map(async (t) => {
       const sources = {};
-      for (const source of ["dataforseo", "search_console", "manual"]) {
+      for (const source of ["serp", "search_console", "manual"]) {
         const last = await prisma.rankSnapshot.findFirst({
           where: { clientId, keyword: t.keyword, location: t.location, device: t.device, source },
           orderBy: { capturedAt: "desc" },

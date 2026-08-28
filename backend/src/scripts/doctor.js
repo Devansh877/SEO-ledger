@@ -221,6 +221,15 @@ async function checkConnectionsForClient(client) {
   return anyLive;
 }
 
+function checkRankTargetForClient(client) {
+  const { targetDomainFor } = require("../services/rank");
+  const domain = targetDomainFor(client);
+  record("Rank tracking", `${client.name} — target domain`, domain ? "PASS" : "FAIL",
+    domain
+      ? `matching results against "${domain}"`
+      : "no websiteUrl and no gscSiteUrl — rank lookups cannot tell which result is this client, so they fall back to mock");
+}
+
 async function checkGa4ForClient(client, creds) {
   const label = `${client.name} — GA4`;
   if (!client.ga4PropertyId) {
@@ -258,16 +267,21 @@ async function checkGa4ForClient(client, creds) {
 
 function checkUnbuilt() {
   const provider = (process.env.RANK_PROVIDER || "serper").toLowerCase();
-  const key = provider === "serper" ? process.env.SERPER_API_KEY
-            : provider === "dataforseo" ? process.env.DATAFORSEO_LOGIN : null;
-  record("Rank tracking", `Provider: ${provider}`, "NOT BUILT",
-    key ? "credentials set, provider code not wired yet" : `no credentials set for ${provider}`);
+  if (provider === "none") {
+    record("Rank tracking", "SERP provider", "WARN",
+      "RANK_PROVIDER=none — the serp column stays empty and only Search Console's averaged position is captured");
+  } else {
+    const key = provider === "serper" ? process.env.SERPER_API_KEY : process.env.DATAFORSEO_LOGIN;
+    record("Rank tracking", `SERP provider: ${provider}`, key ? "PASS" : "FAIL",
+      key
+        ? (provider === "serper"
+            ? "configured — note Serper returns no search volume, so that column stays blank"
+            : "configured — returns position and search volume")
+        : `no credentials — set ${provider === "serper" ? "SERPER_API_KEY" : "DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD"}, or rankings fall back to mock`);
+  }
 
   record("Business Profile", "GBP API (GMB-03)", "NOT BUILT",
-    "gmb.service.js still returns six hardcoded integers. Discovery is wired (see Connections above), the capture call is not");
-
-  record("Conversions", "GA4 key events (CNV-04)", "NOT BUILT",
-    "conversions.service.js returns three hardcoded events and never imports the GA4 client, despite what the README says");
+    "deferred to a later version — gmb.service.js returns placeholder numbers flagged isMock. Keep GMB-03 locked in the access ledger");
 
   record("AI visibility", "AEO / AIO", "NOT BUILT",
     "no model, route, service or UI exists for answer-engine or AI Overview tracking");
@@ -317,6 +331,7 @@ async function main() {
         // OAuth is the primary path; the service account below is the
         // legacy fallback and only worth reporting if it's configured.
         await checkConnectionsForClient(c);
+        checkRankTargetForClient(c);
         if (creds) await checkGa4ForClient(c, creds);
         if (creds) await checkSearchConsoleForClient(c, visibleSites);
       }

@@ -18,7 +18,7 @@
 // client — the error is logged so it's visible, not swallowed silently.
 // --------------------------------------------------------------------------
 const prisma = require("../lib/prisma");
-const { getServiceAccountCredentials } = require("../lib/googleAuth");
+const { resolveAuthForClient } = require("../lib/googleAuth");
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -63,6 +63,10 @@ function buildDailyBreakdownMock(startDate) {
 function buildMockPayload() {
   const { startDate, endDate } = getCompletedWeekRange();
   return {
+    // Flags this payload as fabricated so the dashboard and PDF can say so.
+    // Without it a fallback is invisible to the viewer — the numbers look
+    // exactly like a real report.
+    isMock: true,
     week: { startDate: fmt(startDate), endDate: fmt(endDate) },
     summary: {
       totalUsers: { value: 330, deltaPct: 7.1 },
@@ -118,11 +122,17 @@ function formatDuration(totalSeconds) {
 }
 
 async function fetchRealGa4Payload(client, startDate, endDate) {
-  const credentials = getServiceAccountCredentials();
-  if (!credentials || !client.ga4PropertyId) return null; // not configured — caller falls back to mock
+  if (!client.ga4PropertyId) return null; // no property selected — caller falls back to mock
+
+  // Prefers this client's OAuth connection, falling back to the legacy
+  // service account. Null means neither is configured.
+  const auth = await resolveAuthForClient(client.id);
+  if (!auth) return null;
 
   const { BetaAnalyticsDataClient } = require("@google-analytics/data");
-  const analyticsClient = new BetaAnalyticsDataClient({ credentials });
+  const analyticsClient = new BetaAnalyticsDataClient(
+    auth.mode === "oauth" ? { authClient: auth.authClient } : { credentials: auth.credentials }
+  );
   const property = client.ga4PropertyId;
   const range = { startDate: fmt(startDate), endDate: fmt(endDate) };
   const prevRange = { startDate: fmt(shiftDays(startDate, -7)), endDate: fmt(shiftDays(endDate, -7)) };
@@ -180,6 +190,7 @@ async function fetchRealGa4Payload(client, startDate, endDate) {
   const trafficTotal = trafficRes.rows?.reduce((s, r) => s + parseFloat(r.metricValues[0].value), 0) || 1;
 
   return {
+    isMock: false,
     week: { startDate: fmt(startDate), endDate: fmt(endDate) },
     summary: {
       totalUsers: { value: num(curRow, 0), deltaPct: deltaPct(num(curRow, 0), num(prevRow, 0)) },

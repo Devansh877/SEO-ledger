@@ -52,7 +52,7 @@ export default function ClientsPage() {
               <div className="text-[11px] uppercase tracking-wide text-slate font-semibold mb-1">Client management</div>
               <h1 className="text-xl font-semibold mb-1">Clients</h1>
               <p className="text-slate text-[13px] max-w-[520px] leading-relaxed">
-                Onboard a new client here \u2014 it creates their login and a
+                Onboard a new client here — it creates their login and a
                 blank access ledger. Grant modules from their detail page
                 afterward.
               </p>
@@ -61,7 +61,7 @@ export default function ClientsPage() {
           </div>
 
           {!clients ? (
-            <div className="text-slate text-sm">Loading\u2026</div>
+            <div className="text-slate text-sm">Loading…</div>
           ) : (
             <>
               <div className="flex gap-3 flex-wrap mb-5">
@@ -70,7 +70,7 @@ export default function ClientsPage() {
 
               <div className="card p-0 overflow-hidden">
                 {clients.length === 0 && (
-                  <div className="p-6 text-slate text-sm">No clients yet \u2014 add your first one above.</div>
+                  <div className="p-6 text-slate text-sm">No clients yet — add your first one above.</div>
                 )}
                 {clients.map((c) => {
                   const access = Object.fromEntries(c.access.map((a) => [a.module, a.granted]));
@@ -99,7 +99,7 @@ export default function ClientsPage() {
                         className="flex items-center gap-1.5 text-xs font-medium border border-line rounded px-2.5 py-1.5 shrink-0 hover:bg-surface disabled:opacity-50"
                       >
                         <Download size={12} />
-                        {downloadingId === c.id ? "Preparing\u2026" : "PDF"}
+                        {downloadingId === c.id ? "Preparing…" : "PDF"}
                       </button>
                       <ChevronRight size={16} className="text-slate shrink-0" />
                     </div>

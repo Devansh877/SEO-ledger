@@ -42,7 +42,7 @@ export default function SettingsPage() {
           <h1 className="text-xl font-semibold mb-1">Data capture</h1>
           <p className="text-slate text-[13px] mb-5 leading-relaxed">
             {user.role === "ADMIN"
-              ? "Choose which client to configure. Every report is captured on a weekly schedule, not fetched live \u2014 refresh manually here if a client needs fresher data sooner."
+              ? "Choose which client to configure. Every report is captured on a weekly schedule, not fetched live — refresh manually here if a client needs fresher data sooner."
               : "When each of your reports was last captured, and the keywords your account manager is tracking for you."}
           </p>
 

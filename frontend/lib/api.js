@@ -85,6 +85,21 @@ export const api = {
       body: JSON.stringify({ position, searchVolume, note }),
     }),
   getStatus: (clientId) => request(`/settings/${clientId}/status`),
+
+  // --- Google connections & property discovery ---
+  // startGoogleConnect returns a consent URL rather than redirecting, so the
+  // caller can open it in a popup and keep the admin's place in the UI.
+  // Pass no clientId for an agency-wide connection usable by every client.
+  startGoogleConnect: (clientId) =>
+    request(`/oauth/google/start${clientId ? `?clientId=${encodeURIComponent(clientId)}` : ""}`),
+  listGoogleConnections: () => request("/oauth/google/connections"),
+  removeGoogleConnection: (id) => request(`/oauth/google/connections/${id}`, { method: "DELETE" }),
+  googleProperties: (clientId) => request(`/integrations/${clientId}/google/properties`),
+  saveGoogleSelection: (clientId, selection) =>
+    request(`/integrations/${clientId}/google/selection`, {
+      method: "PUT",
+      body: JSON.stringify(selection),
+    }),
   refreshAll: (clientId) =>
     request(`/settings/${clientId}/refresh-all`, { method: "POST" }),
   downloadReportPdf: (clientId, clientName) =>

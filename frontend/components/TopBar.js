@@ -22,7 +22,7 @@ export function Rail() {
       </Link>
       <Link
         href="/dashboard/clients"
-        title="Clients \u2014 add and manage clients"
+        title="Clients — add and manage clients"
         className={`w-8 h-8 rounded flex items-center justify-center ${onClients ? "bg-ink text-paper" : "text-slate hover:bg-paper"}`}
       >
         <Users2 size={16} />
@@ -45,7 +45,7 @@ export function TopBar({ title, subtitle }) {
     <div className="h-14 border-b border-line flex items-center justify-between px-6 shrink-0">
       <div>
         <div className="font-semibold tracking-tight">{title || "SEO Ledger"}</div>
-        <div className="text-xs text-slate">{subtitle || "NexIT Solutions \u00b7 reporting platform"}</div>
+        <div className="text-xs text-slate">{subtitle || "NexIT Solutions · reporting platform"}</div>
       </div>
       {user && (
         <div className="flex items-center gap-3 text-xs text-slate">
