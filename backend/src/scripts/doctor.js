@@ -12,6 +12,10 @@
 require("dotenv").config();
 const prisma = require("../lib/prisma");
 const { getServiceAccountCredentials, getGoogleAuth } = require("../lib/googleAuth");
+const googleOAuth = require("../lib/googleOAuth");
+const { isConfigured: cryptoReady } = require("../lib/crypto");
+const { connectionsFor, getAccessToken } = require("../services/googleConnection.service");
+const { discoverForClient } = require("../services/googleProperties.service");
 
 const results = [];
 function record(area, name, status, detail) {
@@ -39,6 +43,16 @@ function checkEnv() {
 
   record("Core", "CRON_SECRET", process.env.CRON_SECRET ? "PASS" : "FAIL",
     process.env.CRON_SECRET ? "set — /cron/poll-all is protected" : "not set — /cron/poll-all rejects every request, so the weekly capture will never run");
+
+  record("Core", "ENCRYPTION_KEY", cryptoReady() ? "PASS" : "FAIL",
+    cryptoReady() ? "valid 32-byte key" : "not set or wrong length — OAuth connections cannot be stored. openssl rand -base64 32");
+
+  if (googleOAuth.isConfigured()) {
+    record("Core", "Google OAuth client", "PASS", `redirect URI: ${googleOAuth.redirectUri()}`);
+  } else {
+    record("Core", "Google OAuth client", "FAIL",
+      "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET not set — clients cannot connect their properties");
+  }
 
   const frontend = process.env.FRONTEND_URL;
   record("Core", "FRONTEND_URL", frontend ? "PASS" : "WARN",
@@ -159,6 +173,54 @@ async function checkSearchConsoleForClient(client, visibleSites) {
 
 // ------------------------------------------------------------------ ga4
 
+// Reports OAuth connections and what they can see. This is the check that
+// matters once OAuth is the onboarding path — a client with no working
+// connection has nothing to select, whatever else is configured.
+async function checkConnectionsForClient(client) {
+  const label = `${client.name} — Google connection`;
+  const connections = await connectionsFor(client.id);
+
+  if (!connections.length) {
+    record("Connections", label, "SKIP", "no Google account connected (and no agency-wide connection exists)");
+    return false;
+  }
+
+  let anyLive = false;
+  for (const c of connections) {
+    const scope = c.clientId ? "client" : "agency";
+    const token = await getAccessToken(c);
+    if (token) {
+      anyLive = true;
+      record("Connections", `${label} (${c.googleEmail}, ${scope})`, "PASS", "token refreshes cleanly");
+    } else {
+      record("Connections", `${label} (${c.googleEmail}, ${scope})`, "FAIL",
+        c.lastError || "token refresh failed — needs reconnecting");
+    }
+  }
+
+  if (anyLive) {
+    const d = await discoverForClient(client.id);
+    const summarise = (name, r, selected) => {
+      if (r.status === "ok") {
+        const chosen = selected ? (r.items.some((i) => i.id === selected) ? "selected" : `selected "${selected}" is NOT in this list`) : "nothing selected yet";
+        record("Connections", `${client.name} — ${name}`, selected && r.items.some((i) => i.id === selected) ? "PASS" : "WARN",
+          `${r.items.length} available; ${chosen}`);
+      } else if (r.needsApproval) {
+        record("Connections", `${client.name} — ${name}`, "WARN",
+          "awaiting Google Business Profile API approval — quota is 0 until the access request is granted");
+      } else {
+        record("Connections", `${client.name} — ${name}`, r.status === "empty" ? "WARN" : "FAIL",
+          r.error || "nothing visible to the connected account");
+      }
+    };
+    summarise("GA4 properties", d.ga4, client.ga4PropertyId);
+    summarise("Search Console sites", d.searchConsole, client.gscSiteUrl);
+    summarise("Business Profile locations", d.businessProfile, client.gmbLocationId);
+  }
+
+  return anyLive;
+}
+
 async function checkGa4ForClient(client, creds) {
   const label = `${client.name} — GA4`;
   if (!client.ga4PropertyId) {
@@ -195,14 +257,14 @@ async function checkGa4ForClient(client, creds) {
 // --------------------------------------------------- integrations not built
 
 function checkUnbuilt() {
-  const hasDfs = !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD);
-  record("DataForSEO", "Rank API (KWD-02)", "NOT BUILT",
-    hasDfs
-      ? "credentials are set, but nothing reads them — callDataForSeo() in keywords.service.js still returns random numbers"
-      : "no credentials, and no code to use them — callDataForSeo() returns random numbers");
+  const provider = (process.env.RANK_PROVIDER || "serper").toLowerCase();
+  const key = provider === "serper" ? process.env.SERPER_API_KEY
+            : provider === "dataforseo" ? process.env.DATAFORSEO_LOGIN : null;
+  record("Rank tracking", `Provider: ${provider}`, "NOT BUILT",
+    key ? "credentials set, provider code not wired yet" : `no credentials set for ${provider}`);
 
   record("Business Profile", "GBP API (GMB-03)", "NOT BUILT",
-    "there is no Google Business Profile client in this codebase — gmb.service.js returns six hardcoded integers. gmbLocationId is stored but never read");
+    "gmb.service.js still returns six hardcoded integers. Discovery is wired (see Connections above), the capture call is not");
 
   record("Conversions", "GA4 key events (CNV-04)", "NOT BUILT",
     "conversions.service.js returns three hardcoded events and never imports the GA4 client, despite what the README says");
@@ -252,6 +314,9 @@ async function main() {
     } else {
       const visibleSites = creds ? await checkSearchConsoleAccess() : null;
       for (const c of clients) {
+        // OAuth is the primary path; the service account below is the
+        // legacy fallback and only worth reporting if it's configured.
+        await checkConnectionsForClient(c);
         if (creds) await checkGa4ForClient(c, creds);
         if (creds) await checkSearchConsoleForClient(c, visibleSites);
       }

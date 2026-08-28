@@ -36,7 +36,9 @@ model Client {
   ga4PropertyId String?       // GA4 property this client maps to, e.g. "properties/123456789"
   gmbLocationId String?       // Google Business Profile location id
   gscSiteUrl    String?       // Search Console verified property, e.g. "https://example.com.au/" or "sc-domain:example.com.au"
+  gmbAccountId  String?       // Business Profile account, e.g. "accounts/123" — needed alongside gmbLocationId
   users        User[]
+  connections  GoogleConnection[]
   access       AccessGrant[]
   trackedKeywords TrackedKeyword[]
   rankSnapshots   RankSnapshot[]
@@ -134,4 +136,53 @@ model RankSnapshot {
   capturedAt   DateTime @default(now())
 
   @@index([clientId, keyword, location, device, source, capturedAt])
+}
+
+
+// An OAuth grant from a Google account, giving this app read access to
+// whatever GA4 properties, Search Console sites and Business Profile
+// locations that account can see.
+//
+// Two shapes, and supporting both is what keeps client onboarding simple:
+//
+//   clientId = null  — an AGENCY connection. Sign in once with the agency's
+//     own Google account and every client property that account has already
+//     been granted access to becomes selectable. For most clients this means
+//     zero work on their side, because agencies are usually added to a
+//     client's GA4/Search Console during the original engagement anyway.
+//
+//   clientId set     — a CLIENT connection. For clients who won't add the
+//     agency to their properties, they click one "Connect Google" link and
+//     grant access directly. Scoped to that client only.
+//
+// Property discovery unions across every connection, so an admin picking
+// NexIT's GA4 property sees everything reachable through any of them.
+//
+// Tokens are encrypted at rest (see lib/crypto.js) — a refresh token is a
+// long-lived key to a client's analytics data, and a database dump should
+// not hand them over.
+model GoogleConnection {
+  id            String    @id @default(cuid())
+  // Null = agency-wide connection, usable for any client.
+  client        Client?   @relation(fields: [clientId], references: [id])
+  clientId      String?
+  // The Google account that granted this, for display: "connected as
+  // reports@nexit.au". Not used for auth, only so an admin can tell two
+  // connections apart and knows whose consent to re-request.
+  googleEmail   String
+  accessToken   String?   // encrypted; short-lived, refreshed automatically
+  refreshToken  String    // encrypted; the long-lived credential
+  expiresAt     DateTime? // when accessToken goes stale
+  scopes        String    // space-separated, so we can detect a grant that's missing a scope
+  // "active" — working.
+  // "needs_reconnect" — Google rejected the refresh token (revoked in the
+  //   user's account settings, password changed, or the consent screen is
+  //   still in Testing status, where refresh tokens die after 7 days).
+  status        String    @default("active")
+  lastError     String?
+  lastVerifiedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([clientId])
 }

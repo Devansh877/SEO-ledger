@@ -8,6 +8,8 @@ const accessRoutes = require("./routes/access.routes");
 const reportRoutes = require("./routes/reports.routes");
 const settingsRoutes = require("./routes/settings.routes");
 const cronRoutes = require("./routes/cron.routes");
+const oauthRoutes = require("./routes/oauth.routes");
+const integrationRoutes = require("./routes/integrations.routes");
 
 const app = express();
 // FRONTEND_URL is the frontend's public URL once deployed. Since the
@@ -23,6 +25,8 @@ app.use("/access", accessRoutes);
 app.use("/reports", reportRoutes);
 app.use("/settings", settingsRoutes);
 app.use("/cron", cronRoutes);
+app.use("/oauth", oauthRoutes);
+app.use("/integrations", integrationRoutes);
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
