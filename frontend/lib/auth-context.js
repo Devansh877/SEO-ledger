@@ -23,7 +23,16 @@ export function AuthProvider({ children }) {
     const { token, user } = await api.login(email, password);
     localStorage.setItem("token", token);
     setUser(user);
+    // Routed the same either way — the dashboard itself gates on
+    // mustChangePassword, so there is one place that decision lives rather
+    // than every entry point having to remember to check.
     router.push("/dashboard");
+  }
+
+  // Called after a successful password change so the gate lifts without a
+  // full reload.
+  function clearPasswordChangeRequirement() {
+    setUser((u) => (u ? { ...u, mustChangePassword: false } : u));
   }
 
   function logout() {
@@ -33,7 +42,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ user, loading, login, logout }}>
+    <AuthCtx.Provider value={{ user, loading, login, logout, clearPasswordChangeRequirement }}>
       {children}
     </AuthCtx.Provider>
   );

@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import { Rail, TopBar } from "../../components/TopBar";
 import { Stamp, StatCard } from "../../components/Primitives";
 import ReportView from "../../components/ReportView";
+import PasswordGate from "../../components/PasswordGate";
 
 const MODULES = ["GA4-01", "KWD-02", "GMB-03", "CNV-04"];
 
@@ -20,7 +21,11 @@ export default function DashboardPage() {
 
   if (loading || !user) return null;
 
-  return user.role === "ADMIN" ? <AdminRoster /> : <OwnClientDashboard clientId={user.clientId} />;
+  return (
+    <PasswordGate>
+      {user.role === "ADMIN" ? <AdminRoster /> : <OwnClientDashboard clientId={user.clientId} />}
+    </PasswordGate>
+  );
 }
 
 function AdminRoster() {

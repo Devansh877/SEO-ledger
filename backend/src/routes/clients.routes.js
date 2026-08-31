@@ -1,6 +1,5 @@
 const express = require("express");
-const crypto = require("crypto");
-const bcrypt = require("bcryptjs");
+const password = require("../lib/password");
 const prisma = require("../lib/prisma");
 const authenticate = require("../middleware/auth");
 const requireRole = require("../middleware/requireRole");
@@ -31,15 +30,6 @@ router.get("/:id", asyncHandler(async (req, res) => {
   res.json(client);
 }));
 
-function generateTemporaryPassword() {
-  // Readable-ish, avoids ambiguous characters (0/O, 1/l/I) since this gets
-  // manually copy-pasted or read aloud to a client during onboarding.
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  return Array.from(crypto.randomFillSync(new Uint8Array(12)))
-    .map((b) => alphabet[b % alphabet.length])
-    .join("");
-}
-
 // POST /clients { name, industry, email, ga4PropertyId?, gmbLocationId?, gscSiteUrl? }
 // — admin only: onboard a new client, a blank access ledger (nothing
 // granted until the admin stamps it), and a login for that client. The
@@ -51,7 +41,8 @@ router.post("/", requireRole("ADMIN"), asyncHandler(async (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
   if (!email || !email.trim()) return res.status(400).json({ error: "email is required" });
 
-  const existing = await prisma.user.findUnique({ where: { email: email.trim() } });
+  const loginEmail = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: loginEmail } });
   if (existing) return res.status(409).json({ error: "A user with this email already exists" });
 
   const MODULES = ["GA4-01", "KWD-02", "GMB-03", "CNV-04"];
@@ -67,13 +58,20 @@ router.post("/", requireRole("ADMIN"), asyncHandler(async (req, res) => {
     include: { access: true },
   });
 
-  const temporaryPassword = generateTemporaryPassword();
-  const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+  const temporaryPassword = password.generate();
   await prisma.user.create({
-    data: { email: email.trim(), passwordHash, role: "CLIENT", clientId: client.id },
+    data: {
+      email: loginEmail,
+      passwordHash: await password.hash(temporaryPassword),
+      role: "CLIENT",
+      clientId: client.id,
+      // Forces a change at first sign-in. This password gets messaged or
+      // read aloud during onboarding, so it must not remain in use.
+      mustChangePassword: true,
+    },
   });
 
-  res.status(201).json({ client, loginEmail: email.trim(), temporaryPassword });
+  res.status(201).json({ client, loginEmail, temporaryPassword });
 }));
 
 // PUT /clients/:id { name?, industry?, ga4PropertyId?, gmbLocationId?, gscSiteUrl? }
@@ -96,6 +94,43 @@ router.put("/:id", requireRole("ADMIN"), asyncHandler(async (req, res) => {
     include: { access: true },
   });
   res.json(client);
+}));
+
+// POST /clients/:id/reset-password — admin only: issue a new temporary
+// password for this client's login.
+//
+// This is the supported reset path when SMTP isn't configured, and it stays
+// useful even when it is: a client who has lost access to their mailbox
+// can't use a reset link, but can be given a new password directly. The
+// value is returned once and never retrievable again.
+router.post("/:id/reset-password", requireRole("ADMIN"), asyncHandler(async (req, res) => {
+  const user = await prisma.user.findFirst({
+    where: { clientId: req.params.id, role: "CLIENT" },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!user) return res.status(404).json({ error: "This client has no login to reset" });
+
+  const temporaryPassword = password.generate();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: await password.hash(temporaryPassword),
+      mustChangePassword: true,
+      passwordChangedAt: new Date(),
+      // Clears any lockout — being locked out is often exactly why a reset
+      // was requested.
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    },
+  });
+
+  // Any outstanding self-service links are void now the password has moved.
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  res.json({ loginEmail: user.email, temporaryPassword });
 }));
 
 // DELETE /clients/:id — admin only: permanently remove a client and

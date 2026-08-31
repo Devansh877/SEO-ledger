@@ -16,8 +16,7 @@
 //   NEXIT_GA4_PROPERTY e.g. properties/123456789
 //   NEXIT_GSC_SITE_URL default sc-domain:nexit.com.au
 const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
+const password = require("../src/lib/password");
 const prisma = new PrismaClient();
 
 const MODULES = ["GA4-01", "KWD-02", "GMB-03", "CNV-04"];
@@ -49,25 +48,28 @@ const INITIAL_ACCESS = {
   "CNV-04": false,
 };
 
-function generatePassword() {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  return Array.from(crypto.randomFillSync(new Uint8Array(16)))
-    .map((b) => alphabet[b % alphabet.length])
-    .join("");
-}
-
 // Only creates a user that doesn't exist. Returns the plaintext password if
 // one was generated, or null if the account was already there — so re-runs
 // never print a password that isn't actually in use.
 async function ensureUser({ email, role, clientId }) {
-  const existing = await prisma.user.findUnique({ where: { email } });
+  // Lowercased so a login lookup can never miss on case.
+  const normalised = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalised } });
   if (existing) return null;
 
-  const password = generatePassword();
+  const generated = password.generate();
   await prisma.user.create({
-    data: { email, passwordHash: await bcrypt.hash(password, 10), role, clientId: clientId || null },
+    data: {
+      email: normalised,
+      passwordHash: await password.hash(generated),
+      role,
+      clientId: clientId || null,
+      // Printed to a terminal and likely scrolled back through, so it has
+      // to be replaced at first sign-in.
+      mustChangePassword: true,
+    },
   });
-  return password;
+  return generated;
 }
 
 async function main() {

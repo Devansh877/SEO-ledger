@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronRight, Download } from "lucide-react";
+import { Building2, ChevronRight, Download, KeyRound, Trash2, Loader2 } from "lucide-react";
 import { useAuth } from "../../../lib/auth-context";
 import { api } from "../../../lib/api";
 import { Rail, TopBar } from "../../../components/TopBar";
@@ -19,6 +19,14 @@ export default function ClientsPage() {
   const router = useRouter();
   const [clients, setClients] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [resettingId, setResettingId] = useState(null);
+  // Shown once after an admin reset. Held in state rather than re-fetched
+  // because the plaintext exists only in that one response.
+  const [issuedPassword, setIssuedPassword] = useState(null);
+  const [removing, setRemoving] = useState(null); // the client pending confirmation
+  const [typedName, setTypedName] = useState("");
+  const [busyRemove, setBusyRemove] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "ADMIN")) router.replace("/dashboard");
@@ -36,6 +44,36 @@ export default function ClientsPage() {
       await api.downloadReportPdf(client.id, client.name);
     } finally {
       setDownloadingId(null);
+    }
+  }
+
+  async function resetPassword(e, client) {
+    e.stopPropagation();
+    setResettingId(client.id);
+    setActionError(null);
+    setIssuedPassword(null);
+    try {
+      const result = await api.resetClientPassword(client.id);
+      setIssuedPassword({ ...result, clientName: client.name });
+    } catch (err) {
+      setActionError(err.body?.error || err.message);
+    } finally {
+      setResettingId(null);
+    }
+  }
+
+  async function confirmRemove() {
+    setBusyRemove(true);
+    setActionError(null);
+    try {
+      await api.deleteClient(removing.id, removing.name);
+      setRemoving(null);
+      setTypedName("");
+      load();
+    } catch (err) {
+      setActionError(err.body?.detail || err.body?.error || err.message);
+    } finally {
+      setBusyRemove(false);
     }
   }
 
@@ -100,6 +138,22 @@ export default function ClientsPage() {
                       >
                         <Download size={12} />
                         {downloadingId === c.id ? "Preparing…" : "PDF"}
+                      </button>
+                      <button
+                        onClick={(e) => resetPassword(e, c)}
+                        disabled={resettingId === c.id}
+                        title="Issue a new temporary password for this client's login"
+                        className="flex items-center gap-1.5 text-xs font-medium border border-line rounded px-2.5 py-1.5 shrink-0 hover:bg-surface disabled:opacity-50"
+                      >
+                        {resettingId === c.id ? <Loader2 size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                        Reset
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRemoving(c); setTypedName(""); setActionError(null); }}
+                        title="Remove this client"
+                        className="flex items-center gap-1.5 text-xs font-medium text-red border border-red/40 rounded px-2.5 py-1.5 shrink-0 hover:bg-red/5"
+                      >
+                        <Trash2 size={12} /> Remove
                       </button>
                       <ChevronRight size={16} className="text-slate shrink-0" />
                     </div>

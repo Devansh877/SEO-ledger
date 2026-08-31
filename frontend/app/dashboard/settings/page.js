@@ -7,6 +7,7 @@ import { Rail, TopBar } from "../../../components/TopBar";
 import KeywordSettings from "../../../components/KeywordSettings";
 import CaptureStatus from "../../../components/CaptureStatus";
 import RankingAccuracyNote from "../../../components/RankingAccuracyNote";
+import PasswordForm from "../../../components/PasswordForm";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -68,6 +69,21 @@ export default function SettingsPage() {
             <KeywordSettings clientId={selectedId} editable={user.role === "ADMIN"} />
           </div>
           <RankingAccuracyNote />
+
+          {/* Available to admins and clients alike — every account can
+              change its own password without needing anyone's help. */}
+          <div className="card mt-5">
+            <div className="font-semibold text-[13px] mb-1">Your password</div>
+            <p className="text-slate text-[12.5px] mb-3 m-0">
+              Signed in as <span className="font-mono">{user.email}</span>.
+            </p>
+            <PasswordForm
+              requireCurrent
+              onSubmit={({ currentPassword, newPassword }) =>
+                api.changePassword(currentPassword, newPassword)
+              }
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@ const googleOAuth = require("../lib/googleOAuth");
 const { isConfigured: cryptoReady } = require("../lib/crypto");
 const { connectionsFor, getAccessToken } = require("../services/googleConnection.service");
 const { discoverForClient } = require("../services/googleProperties.service");
+const mailer = require("../lib/mailer");
 
 const results = [];
 function record(area, name, status, detail) {
@@ -55,11 +56,25 @@ function checkEnv() {
   }
 
   const frontend = process.env.FRONTEND_URL;
+
   record("Core", "FRONTEND_URL", frontend ? "PASS" : "WARN",
     frontend ? frontend : "not set — CORS falls open to '*'");
 }
 
 // ------------------------------------------------------------------ database
+
+// Email is optional by design, so an unconfigured mailer is a WARN, not a
+// failure — admin-issued passwords cover reset without it.
+async function checkEmail() {
+  if (!mailer.isConfigured()) {
+    record("Email", "SMTP", "WARN",
+      "not configured — self-service 'Forgot password' is disabled; admins issue new passwords from the Clients page instead");
+    return;
+  }
+  const result = await mailer.verify();
+  record("Email", "SMTP", result.ok ? "PASS" : "FAIL",
+    result.ok ? `${process.env.SMTP_HOST} accepted the connection` : result.reason);
+}
 
 async function checkDatabase() {
   try {
@@ -319,10 +334,20 @@ function report() {
 async function main() {
   checkEnv();
   const dbOk = await checkDatabase();
+  await checkEmail();
   const creds = checkServiceAccount();
 
   if (dbOk) {
     const clients = await prisma.client.findMany({ orderBy: { name: "asc" } });
+    const pending = await prisma.user.count({ where: { mustChangePassword: true } });
+    record("Accounts", "Generated passwords", pending ? "WARN" : "PASS",
+      pending
+        ? `${pending} account(s) still on a generated password — they'll be forced to change it at next sign-in`
+        : "every account has chosen its own password");
+
+    const locked = await prisma.user.count({ where: { lockedUntil: { gt: new Date() } } });
+    if (locked) record("Accounts", "Locked out", "WARN", `${locked} account(s) locked by failed sign-in attempts`);
+
     if (!clients.length) {
       record("Clients", "Roster", "WARN", "no clients in the database — run `npm run seed`");
     } else {

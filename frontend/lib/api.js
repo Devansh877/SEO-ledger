@@ -59,6 +59,17 @@ export const api = {
   login: (email, password) =>
     request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   me: () => request("/auth/me"),
+  changePassword: (currentPassword, newPassword) =>
+    request("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  forgotPassword: (email) =>
+    request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (token, newPassword) =>
+    request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }),
+  resetClientPassword: (clientId) =>
+    request(`/clients/${clientId}/reset-password`, { method: "POST" }),
   listClients: () => request("/clients"),
   getClient: (id) => request(`/clients/${id}`),
   createClient: (data) => request("/clients", { method: "POST", body: JSON.stringify(data) }),

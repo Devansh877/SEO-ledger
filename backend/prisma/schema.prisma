@@ -25,7 +25,40 @@ model User {
                          // provider between postgresql/mysql/sqlite
   client       Client?  @relation(fields: [clientId], references: [id])
   clientId     String?
+
+  // Set when an account is created with a generated password, or after an
+  // admin resets one. The dashboard refuses to render until it's cleared,
+  // so a password that was emailed or read aloud can't stay in use.
+  mustChangePassword Boolean @default(false)
+  passwordChangedAt  DateTime?
+
+  // Login throttling, kept in the database rather than in memory because
+  // serverless functions don't share process state — an in-memory counter
+  // resets every cold start and throttles nothing.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  resetTokens  PasswordResetToken[]
   createdAt    DateTime @default(now())
+}
+
+// A single-use password reset token.
+//
+// Only the SHA-256 hash is stored. The raw token exists in the reset link
+// and nowhere else, so a database dump can't be used to take over accounts
+// — the same reason passwords are hashed.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  // Set the moment the token is spent. Kept rather than deleted so a
+  // reused link can be told apart from one that never existed.
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // One row per agency client (Cyberforte, Meridian Dental, etc.)
