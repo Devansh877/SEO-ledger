@@ -7,6 +7,7 @@ import { Rail, TopBar } from "../../../../components/TopBar";
 import AccessLedger from "../../../../components/AccessLedger";
 import IntegrationSettings from "../../../../components/IntegrationSettings";
 import ReportView from "../../../../components/ReportView";
+import DangerZone from "../../../../components/DangerZone";
 
 // Admin drill-down: grant/revoke modules for one client, and preview
 // exactly what that client currently sees (same ReportView component
@@ -55,6 +56,8 @@ export default function ClientDetailPage() {
           <p className="text-slate text-[13px] mb-3">{client.industry}</p>
 
           <IntegrationSettings client={client} onSaved={(updated) => setClient((c) => ({ ...c, ...updated }))} />
+
+          <DangerZone client={client} onDeleted={() => router.push("/dashboard")} />
 
           <div className="card mb-5">
             <div className="font-semibold text-[13px] mb-2.5">Access ledger</div>

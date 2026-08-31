@@ -63,6 +63,11 @@ export const api = {
   getClient: (id) => request(`/clients/${id}`),
   createClient: (data) => request("/clients", { method: "POST", body: JSON.stringify(data) }),
   updateClient: (id, data) => request(`/clients/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  // Requires the exact client name as confirmation — the server rejects the
+  // call without it, since this destroys captured history that cannot be
+  // re-fetched from any API.
+  deleteClient: (id, confirmName) =>
+    request(`/clients/${id}?confirm=${encodeURIComponent(confirmName)}`, { method: "DELETE" }),
   setAccess: (clientId, moduleCode, granted) =>
     request(`/access/${clientId}/${moduleCode}`, {
       method: "PUT",

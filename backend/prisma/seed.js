@@ -73,7 +73,11 @@ async function ensureUser({ email, role, clientId }) {
 async function main() {
   const adminPassword = await ensureUser({ email: ADMIN_EMAIL, role: "ADMIN" });
 
-  let client = await prisma.client.findFirst({ where: { name: NEXIT.name } });
+  // Matched case-insensitively so an existing "Nexit" added by hand isn't
+  // duplicated by a second "NexIT" row.
+  let client = await prisma.client.findFirst({
+    where: { name: { equals: NEXIT.name, mode: "insensitive" } },
+  });
   if (!client) {
     client = await prisma.client.create({ data: NEXIT });
   } else {

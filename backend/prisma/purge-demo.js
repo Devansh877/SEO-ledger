@@ -30,7 +30,26 @@ async function main() {
     include: { users: true },
   });
 
-  const demoAdmin = await prisma.user.findUnique({ where: { email: DEMO_ADMIN_EMAIL } });
+  let demoAdmin = await prisma.user.findUnique({ where: { email: DEMO_ADMIN_EMAIL } });
+
+  // Guard against locking yourself out. The demo admin is very likely the
+  // account you're signed in as right now, and deleting it with no
+  // replacement leaves nobody who can administer the platform — with no
+  // self-service password reset to recover through. Run `npm run seed`
+  // first; it creates the real admin.
+  if (demoAdmin) {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", email: { not: DEMO_ADMIN_EMAIL } },
+    });
+    if (otherAdmins === 0) {
+      console.log("");
+      console.log(`  Keeping ${DEMO_ADMIN_EMAIL} — it is the only ADMIN account.`);
+      console.log("  Deleting it would lock you out, and there is no password reset flow yet.");
+      console.log("  Run `npm run seed` to create the real admin, then re-run this to remove it.");
+      console.log("");
+      demoAdmin = null;
+    }
+  }
 
   if (!clients.length && !demoAdmin) {
     console.log("Nothing to do — no demo clients and no demo admin found.");

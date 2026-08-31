@@ -98,4 +98,61 @@ router.put("/:id", requireRole("ADMIN"), asyncHandler(async (req, res) => {
   res.json(client);
 }));
 
+// DELETE /clients/:id — admin only: permanently remove a client and
+// everything attached to them.
+//
+// Requires ?confirm=<exact client name> in the query string. Prisma has no
+// cascade configured on these relations, so a bare delete would fail on the
+// foreign keys anyway — but the real reason for the confirmation is that
+// this destroys captured history that cannot be re-fetched. Ranking APIs
+// only ever return today's position, so deleted RankSnapshot rows are gone
+// for good; no amount of re-polling rebuilds a trend line.
+router.delete("/:id", requireRole("ADMIN"), asyncHandler(async (req, res) => {
+  const client = await prisma.client.findUnique({
+    where: { id: req.params.id },
+    include: { users: true },
+  });
+  if (!client) return res.status(404).json({ error: "Client not found" });
+
+  if (req.query.confirm !== client.name) {
+    return res.status(400).json({
+      error: "Confirmation required",
+      detail: `Pass ?confirm=<client name> matching exactly: "${client.name}"`,
+    });
+  }
+
+  // Counted before deletion so the response can report what actually went,
+  // rather than the caller having to trust that it worked.
+  const [keywords, ranks, reports, grants, connections] = await Promise.all([
+    prisma.trackedKeyword.count({ where: { clientId: client.id } }),
+    prisma.rankSnapshot.count({ where: { clientId: client.id } }),
+    prisma.reportSnapshot.count({ where: { clientId: client.id } }),
+    prisma.accessGrant.count({ where: { clientId: client.id } }),
+    prisma.googleConnection.count({ where: { clientId: client.id } }),
+  ]);
+
+  // Children first — every one of these references clientId.
+  await prisma.$transaction([
+    prisma.rankSnapshot.deleteMany({ where: { clientId: client.id } }),
+    prisma.reportSnapshot.deleteMany({ where: { clientId: client.id } }),
+    prisma.trackedKeyword.deleteMany({ where: { clientId: client.id } }),
+    prisma.accessGrant.deleteMany({ where: { clientId: client.id } }),
+    prisma.googleConnection.deleteMany({ where: { clientId: client.id } }),
+    prisma.user.deleteMany({ where: { clientId: client.id } }),
+    prisma.client.delete({ where: { id: client.id } }),
+  ]);
+
+  res.json({
+    deleted: client.name,
+    removed: {
+      logins: client.users.length,
+      accessGrants: grants,
+      trackedKeywords: keywords,
+      rankSnapshots: ranks,
+      reportSnapshots: reports,
+      googleConnections: connections,
+    },
+  });
+}));
+
 module.exports = router;
