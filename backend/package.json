@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "purge:demo": "node prisma/purge-demo.js",
     "doctor": "node src/scripts/doctor.js",
-    "create-admin": "node prisma/create-admin.js"
+    "create-admin": "node prisma/create-admin.js",
+    "smoke": "node src/scripts/smoke-capture.js"
   },
   "dependencies": {
     "@google-analytics/data": "^6.1.0",
