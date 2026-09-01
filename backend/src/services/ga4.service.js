@@ -200,11 +200,16 @@ async function fetchRealGa4Payload(client, startDate, endDate) {
       bounceRate: { value: Math.round(num(curRow, 4) * 1000) / 10, deltaPct: deltaPct(num(curRow, 4), num(prevRow, 4)) },
       sessionKeyEventRate: { value: Math.round(num(curRow, 5) * 1000) / 10, deltaPct: deltaPct(num(curRow, 5), num(prevRow, 5)) },
     },
-    dailyBreakdown: (dailyRes.rows || []).map((r, i) => {
+    dailyBreakdown: (dailyRes.rows || []).map((r) => {
       const dateStr = r.dimensionValues[0].value; // "YYYYMMDD"
+      const iso = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
       return {
-        date: `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`,
-        label: WEEKDAY_LABELS[i] || "",
+        date: iso,
+        // Derived from the row's own date, never from its index. GA4 omits
+        // rows for days with no data, so indexing into WEEKDAY_LABELS meant
+        // one quiet Tuesday shifted every later label a day left — Saturday's
+        // traffic would render under "Fri".
+        label: WEEKDAY_LABELS[(new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7] || "",
         users: parseFloat(r.metricValues[0].value),
         sessions: parseFloat(r.metricValues[1].value),
       };

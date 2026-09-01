@@ -11,12 +11,16 @@ const cronRoutes = require("./routes/cron.routes");
 const oauthRoutes = require("./routes/oauth.routes");
 const integrationRoutes = require("./routes/integrations.routes");
 
+const { assertValid, corsOrigin } = require("./lib/config");
+// Fails fast in production rather than starting up misconfigured.
+assertValid();
+
 const app = express();
 // FRONTEND_URL is the frontend's public URL once deployed. Since the
 // frontend's own Next.js server proxies /api/* to us server-side (see
 // frontend/next.config.js), the browser never calls this backend directly —
 // this CORS rule is a second layer of defense, not the primary boundary.
-app.use(cors({ origin: process.env.FRONTEND_URL || "*" }));
+app.use(cors({ origin: corsOrigin() }));
 app.use(express.json());
 
 app.use("/auth", authRoutes);

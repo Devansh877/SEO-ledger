@@ -286,6 +286,39 @@ npm install
 npm run dev                 # http://localhost:3000
 ```
 
+### First run against an existing database
+
+The database was originally created with `prisma db push`, so its tables
+exist but Prisma has no migration history for them. Applying the committed
+baseline migration would fail trying to create tables that are already
+there. Mark it as already applied instead — once only:
+
+```
+cd backend
+npx prisma migrate resolve --applied 00000000000000_init
+npx prisma migrate deploy    # applies anything newer
+```
+
+On a brand-new empty database, skip the `resolve` and just run
+`migrate deploy`.
+
+### Creating the admin login
+
+```
+ADMIN_PASSWORD='choose-something' npm run create-admin
+```
+
+Creates `admin@nexit.au` (override with `ADMIN_EMAIL`). This is also the
+recovery path: there is deliberately no in-app way for one admin to reset
+another, so if every admin password is lost, this run against the database
+is how you get back in. Re-running resets the password and clears any
+lockout.
+
+Omit `ADMIN_PASSWORD` and a strong one is generated, printed once, and must
+be changed at first sign-in. Supply it and it is used as-is and active
+immediately — intended for a testing phase, not for a deployment that has
+real client logins on it.
+
 ### Logins
 
 `npm run seed` creates two accounts and prints a randomly generated password

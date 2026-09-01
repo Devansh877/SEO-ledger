@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:generate": "prisma generate",
     "purge:demo": "node prisma/purge-demo.js",
-    "doctor": "node src/scripts/doctor.js"
+    "doctor": "node src/scripts/doctor.js",
+    "create-admin": "node prisma/create-admin.js"
   },
   "dependencies": {
     "@google-analytics/data": "^6.1.0",

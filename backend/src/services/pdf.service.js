@@ -62,6 +62,31 @@ function generateClientReportPdf({ client, access, ga4, keywords, gmb, conversio
     doc.fontSize(10).fillColor(SLATE).font("Helvetica").text(client.industry);
     doc.moveDown(0.2);
     doc.fontSize(9).fillColor(SLATE).text(`Generated ${formatDate(new Date().toISOString())}`);
+
+    // A PDF outlives the screen it came from — it gets emailed, filed and
+    // quoted back months later. If any section is placeholder data, that
+    // has to travel with the document, or an unmarked export becomes the
+    // most convincing possible way to hand a client invented numbers.
+    const mockModules = [
+      ga4?.isMock && "Analytics",
+      conversions?.isMock && "Conversions",
+      gmb?.isMock && "Business profile",
+    ].filter(Boolean);
+
+    if (mockModules.length) {
+      doc.moveDown(0.8);
+      const top = doc.y;
+      doc.rect(doc.page.margins.left, top, doc.page.width - doc.page.margins.left - doc.page.margins.right, 44)
+         .fillColor("#FBF0E2").fill();
+      doc.fillColor("#8A5A1E").font("Helvetica-Bold").fontSize(10)
+         .text("PLACEHOLDER DATA - NOT FOR CLIENT USE", doc.page.margins.left + 10, top + 9);
+      doc.font("Helvetica").fontSize(9).fillColor("#8A5A1E")
+         .text(`${mockModules.join(", ")} ${mockModules.length === 1 ? "is" : "are"} not connected to a live source. These figures are generated, not measured.`,
+               doc.page.margins.left + 10, top + 24,
+               { width: doc.page.width - doc.page.margins.left - doc.page.margins.right - 20 });
+      doc.fillColor(INK).font("Helvetica");
+      doc.y = top + 52;
+    }
     doc.moveTo(50, doc.y + 10).lineTo(doc.page.width - 50, doc.y + 10).strokeColor(INK).lineWidth(1.5).stroke();
 
     // --- Analytics (GA4) ---

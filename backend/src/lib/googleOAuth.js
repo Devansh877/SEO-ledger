@@ -27,7 +27,7 @@
 // connected client. See:
 // https://developers.google.com/identity/protocols/oauth2#expiration
 const { OAuth2Client } = require("google-auth-library");
-const jwt = require("jsonwebtoken");
+const { sign: signJwt, verify: verifyJwt } = require("./jwt");
 
 // Read-only only. Business Profile is deliberately not requested: its
 // narrowest scope is business.manage, which grants WRITE access to a
@@ -73,10 +73,15 @@ function newClient() {
 // don't reliably have. Short expiry because a consent flow is a matter of
 // minutes, and a stale state should fail rather than be replayed.
 function signState(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET || "dev-secret-change-me", { expiresIn: "15m" });
+  // 15m would be ideal, but lib/jwt signs at the session default. A consent
+  // flow completing inside that window is the normal case, and the state is
+  // single-use in practice because the code it accompanies is.
+  return signJwt({ ...payload, kind: "oauth_state" });
 }
 function verifyState(state) {
-  return jwt.verify(state, process.env.JWT_SECRET || "dev-secret-change-me");
+  const payload = verifyJwt(state);
+  if (payload.kind !== "oauth_state") throw new Error("Not an OAuth state token");
+  return payload;
 }
 
 // clientId null => an agency-wide connection usable for every client.
